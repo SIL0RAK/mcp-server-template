@@ -3,7 +3,6 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src
 
-RUN pip install --upgrade pip uv uvicorn
 RUN pip install --upgrade pip uv
 
 WORKDIR /app
@@ -18,4 +17,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "server:mcp", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "server"]

@@ -1,0 +1,31 @@
+services:
+  mcp-server:
+    container_name: mcp-server
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mcp-vector-db
+    build: .
+    env_file:
+      - .env
+    restart: always
+    user: "${UID}:${GID}"
+    environment:
+      - HOST=0.0.0.0
+      - DOMAIN_CLIENT=http://localhost:8000
+      - DATABASE_URL=postgresql://pgadmin:pgpassword@mcp-vector-db:5432/postgres
+  mcp-vector-db:
+    container_name: mcp-vector-db
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: pgadmin
+      POSTGRES_PASSWORD: pgpassword
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

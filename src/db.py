@@ -12,7 +12,13 @@ _pool: asyncpg.Pool | None = None
 async def init_db():
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(DATABASE_URL)
+        try:
+            _pool = await asyncpg.create_pool(DATABASE_URL)
+        except Exception as e:
+            print(f"⚠️ Warning: Failed to connect to database: {e}") 
+            return None
+    
+    print ("Connected to database")
     return _pool
 
 async def get_db():

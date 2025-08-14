@@ -1,21 +1,17 @@
-from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 import asyncio
 from dotenv import load_dotenv
 from pathlib import Path
+from fastmcp import FastMCP
 
 dotenv_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path)
 
 
 from db import get_db, run_migrations
-from auth import BearerAuthMiddleware
 
 
 mcp = FastMCP("Database connection")
-
-mcp.add_middleware(BearerAuthMiddleware)
-
 
 class GetFieldValueInput(BaseModel):
     table_name: str = Field(..., description="Name of database table")
@@ -48,4 +44,4 @@ async def getDatabaseSchema():
 
 if __name__ == "__main__":
     asyncio.run(run_migrations())
-    mcp.run(transport="http", host="0.0.0.0", port=8000)
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
