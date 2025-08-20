@@ -1,4 +1,5 @@
-
+from fastmcp.server.middleware import Middleware, MiddlewareContext
+from fastmcp.exceptions import ResourceError
 import os
 
 API_TOKEN = os.getenv(
@@ -6,43 +7,21 @@ API_TOKEN = os.getenv(
     None
 )
 
-
-class BearerAuthMiddleware:
-    def __init__(self, app):
-        self.app = app
-
-    async def __call__(self, scope, receive, send) -> None:
+class BearerAuthMiddleware(Middleware):
+    async def __call__(self, context: MiddlewareContext, call_next):
         if API_TOKEN is None:
-            return await self.app(scope, receive, send)
-    
-        if scope["type"] not in ("http", "websocket"):
-            return await self.app(scope, receive, send)
+            return call_next(context)
 
-        headers = dict((k.decode().lower(), v.decode()) for k, v in scope.get("headers", []))
-        auth = headers.get("authorization", "")
-        ok = False
+        authHeader = context.fastmcp_context.get_http_request().headers.get("authorization")
 
-        if auth.startswith("Bearer "):
-            token = auth.removeprefix("Bearer ").strip()
-            ok = token and API_TOKEN and (token == API_TOKEN)
+        try:
+            if authHeader is None:
+                raise ResourceError("Access denied: restricted resource")
 
-        if not ok:
-            async def send_unauthorized() -> None:
-                await send({
-                    "type": "http.response.start",
-                    "status": 401,
-                    "headers": [
-                        (b"content-type", b"application/json"),
-                        (b"www-authenticate", b'Bearer realm="mcp", charset="UTF-8"'),
-                    ],
-                })
-                await send({
-                    "type": "http.response.body",
-                    "body": b'{"detail":"Unauthorized"}',
-                })
-            return await send_unauthorized()
+            if authHeader != f"Bearer {API_TOKEN}":
+                raise ResourceError("Access denied: restricted resource")
 
-        scope.setdefault("state", {})
-        scope["state"]["auth"] = {"token": "provided"}
+        except Exception:
+            pass
 
-        return await self.app(scope, receive, send)
+        return  call_next(context)

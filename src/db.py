@@ -10,26 +10,23 @@ DATABASE_URL = os.getenv(
 _pool: asyncpg.Pool | None = None
 
 async def init_db():
-    global _pool
-    if _pool is None:
-        try:
-            _pool = await asyncpg.create_pool(DATABASE_URL)
-        except Exception as e:
-            print(f"⚠️ Warning: Failed to connect to database: {e}") 
-            return None
-    
-    print ("Connected to database")
-    return _pool
+    try:
+        pool = await asyncpg.create_pool(DATABASE_URL, max_size=10)
+        print ("Connected to database")
+        return pool
+    except Exception as e:
+        print(f"⚠️ Warning: Failed to connect to database: {e}") 
+    return None
 
 async def get_db():
+    global _pool
     if _pool is None:
-        await init_db()
+        _pool = await init_db()
     return _pool
 
 
 async def run_migrations():
-    pool = await get_db()
-
+    pool = await init_db()
     print("Running migrations...")
 
     async with pool.acquire() as conn:
@@ -41,16 +38,21 @@ async def run_migrations():
                 applied_at TIMESTAMP DEFAULT NOW()
             )
         """)
+        
         # Get already applied migrations
         applied = {row['filename'] for row in await conn.fetch("SELECT filename FROM migrations")}
 
-        # Apply pending migrations
-        for filename in sorted(os.listdir(MIGRATIONS_FOLDER)):
-            if filename.endswith(".sql") and filename not in applied:
-                path = os.path.join(MIGRATIONS_FOLDER, filename)
-                sql = open(path).read()
-                await conn.execute(sql)
-                await conn.execute(
-                    "INSERT INTO migrations (filename) VALUES ($1)", filename
-                )
-                print(f"Applied migration: {filename}")
+    # Apply migrations one by one, each in its own connection
+    for filename in sorted(os.listdir(MIGRATIONS_FOLDER)):
+        if filename.endswith(".sql") and filename not in applied:
+            path = os.path.join(MIGRATIONS_FOLDER, filename)
+            sql = open(path).read()
+            async with pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute(sql)
+                    await conn.execute(
+                        "INSERT INTO migrations (filename) VALUES ($1)", filename
+                    )
+                    print(f"Applied migration: {filename}")
+
+    pool.close()

@@ -12,5 +12,5 @@ dependencies = [
     "asyncpg>=0.30.0",
     "pytest>=8.4.1",
     "python-dotenv>=1.1.1",
-    "fastmcp>=2.3.3",
+    "fastmcp>=2.9.0",
 ]

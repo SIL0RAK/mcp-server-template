@@ -1,46 +1,42 @@
-from pydantic import BaseModel, Field
 import asyncio
 from dotenv import load_dotenv
 from pathlib import Path
 from fastmcp import FastMCP
+from auth import BearerAuthMiddleware
+from query import Query, QueryClasses, buildSelectSQL
+import json
 
 dotenv_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path)
 
-
 from db import get_db, run_migrations
 
 
-mcp = FastMCP("Database connection")
+mcp = FastMCP(
+    "Database connection",
+    streamable_http_path='',
+    middleware=[BearerAuthMiddleware()]
+)
 
-class GetFieldValueInput(BaseModel):
-    table_name: str = Field(..., description="Name of database table")
-    field_name: str = Field(..., description="Name of database table column")
-    value: str = Field(..., description="Value of database table column")
 
-
+# limitation currently it supports only one table
 @mcp.tool()
-async def getFieldValue(params: GetFieldValueInput) -> int:
-    pool = await get_db()
-    async with pool.acquire() as conn:
-        result = await conn.fetch(f"SELECT * FROM {params.table_name} WHERE {params.field_name} = '{params.value}'")
-        return result
-
-
-@mcp.tool()
-async def getDatabaseSchema():
-    pool = await get_db()
-    async with pool.acquire() as conn:
-        rows = await conn.fetch("""
-            SELECT table_name, column_name
-            FROM information_schema.columns
-            WHERE table_schema='public'
-        """)
-        schema = {}
-        for row in rows:
-            schema.setdefault(row["table_name"], []).append(row["column_name"])
-        return schema
-
+async def getDataByQuery(query: Query) -> str:
+    try:
+        pool = await get_db()
+        sql = buildSelectSQL(query)
+        print(sql)
+        
+        async with pool.acquire() as conn:
+            result = await conn.fetch(sql)  # use fetch, not execute
+            rows = [dict(r) for r in result]
+            print(rows)
+            
+            return json.dumps(rows)
+    except Exception as e:
+        print("Error:", e)
+        return json.dumps([])
+    
 
 if __name__ == "__main__":
     asyncio.run(run_migrations())
