@@ -22,3 +22,11 @@ Start docker container and database (suggested flow for testing)
 ```
 docker compose up
 ```
+
+## Environment variables
+
+* `API_TOKEN` - [Optional] API token for basic authentication
+
+* `DATABASE_URL` - postgresql://user:password@localhost:5432/mydb
+
+** If you are working locally you will need to create .env file in root directory (use .env.example as a template)
