@@ -46,7 +46,7 @@ The server is configured using environment variables.
 ## 🔌 Connecting to MCP Client
 
 * Local: `http://localhost:8000`
-* Remote: `http://<your-server-domain>:8000`
+* Remote: `http://<your-server-domain>`
 
 ### Authentication
 
