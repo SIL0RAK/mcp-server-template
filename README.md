@@ -78,9 +78,7 @@ Accept: application/json, text/event-stream
 flowchart TD
     A[MCP Client] <-- streamable-http --> B[MCP Server]
     B <-- queries --> C[(PostgreSQL Database)]
-    A -. optional .-> B:::auth
-
-    classDef auth fill=#ffedcc,stroke=#ff9900,stroke-width=2px;
+    A -.  Call with instructions and headers .-> B:::auth
 ```
 
 * **MCP Client** communicates with the server using HTTP (`streamable-http`).
