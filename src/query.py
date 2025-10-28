@@ -155,14 +155,20 @@ def buildSelectSQL(query: Query) -> str:
     limit = f" LIMIT {query.limit}" if query.limit is not None else ""
 
     if query.filter_tree is None:
-        return f"SELECT * FROM {query.table_name}{limit}"
+        return [
+            f"SELECT * FROM {query.table_name}{limit}",
+            []
+        ]
 
     sql, params = buildWhereSQL(query.filter_tree.model_dump())
 
     sql, params = convert_named_params_for_asyncpg(sql, params)
 
     if query.select_fields is not None:
-        return f"SELECT {', '.join(query.select_fields)} FROM {query.table_name} WHERE {sql}{limit}"
+        return [
+            f"SELECT {', '.join(query.select_fields)} FROM {query.table_name} WHERE {sql}{limit}",
+            params
+        ]
     
     return [
         f"SELECT * FROM {query.table_name} WHERE {sql}{limit}",
