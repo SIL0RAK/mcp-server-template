@@ -55,4 +55,4 @@ async def run_migrations():
                     )
                     print(f"Applied migration: {filename}")
 
-    pool.close()
+    await pool.close()

@@ -1,12 +1,7 @@
 from typing import List, Optional, Union, Dict, Any, Literal, Tuple, ForwardRef
-from pydantic import BaseModel, Field, create_model
+from typing_extensions import Annotated
+from pydantic import BaseModel, Field, RootModel, create_model
 from enum import Enum
-
- # fields should match the ones in the database
-class FieldName(str, Enum):
-    id = "id"
-    name = "name"
-    value = "value"
 
 
 class RangeValue(BaseModel):
@@ -20,7 +15,7 @@ class BetweenValue(BaseModel):
 
 
 class LeafCondition(BaseModel):
-    field: FieldName
+    field: str
     # custom operators can be injected
     op: Literal[
         "eq", "neq", "contains", "starts_with", "ends_with", "ilike",
@@ -49,85 +44,10 @@ class Query(BaseModel):
     filter_tree: Optional[FilterNode] = Field(None, description="Nested boolean tree with leaf conditions.")
     table_name: str = Field(..., description="Name of database table")
     limit: Optional[int] = Field(None, description="Max rows to return. Omit if no limit.")
-    select_fields: Optional[List[FieldName]] = Field(None, description="List of fields to select. Omit if no selection.")
-
-# Building pedantic schema for llm
-
-
-def create_table_queries(db_schema: Dict[str, Dict[str, str]]):
-    query_classes = {}
-
-    for table_name, fields in db_schema.items():
-        # Allowed fields for filter/select
-        field_literals = Literal[tuple(fields.keys())]
-
-        # --- LeafCondition ---
-        leaf_class_name = f"{table_name.capitalize()}LeafCondition"
-        LeafRef = ForwardRef(leaf_class_name)
-
-        leaf_class = create_model(
-            leaf_class_name,
-            field=(field_literals, ...),
-            op=(Literal[
-                "eq", "neq", "contains", "starts_with", "ends_with", "ilike",
-                "in", "not_in", "is_null", "is_not_null",
-                "gt", "gte", "lt", "lte",
-                "range", "between", "not_between"
-            ], ...),
-            value=(Union[
-                str,
-                int,
-                float,
-                List[Union[str, int, float]],
-                RangeValue,
-                BetweenValue,
-                LeafRef
-            ], ...)
-        )
-
-        # --- BooleanNode ---
-        BooleanNode = create_model(
-            f"{table_name.capitalize()}BooleanNode",
-            op=(Literal["and", "or", "not"], ...),
-            children=(List[Union[leaf_class, "BooleanNode"]], ...)
-        )
-
-        # Resolve forward references
-        BooleanNode.model_rebuild()
-        leaf_class.model_rebuild()
-
-        FilterNode = Union[leaf_class, BooleanNode]
-
-        # --- Table-specific Query class ---
-        query_class_name = f"{table_name.capitalize()}Query"
-        query_class = create_model(
-            query_class_name,
-            filter_tree=(FilterNode, ...),
-            table_name=(Literal[table_name], ...),
-            limit=(Optional[int], None),
-            select_fields=(Optional[List[field_literals]], None)
-        )
-
-        query_classes[table_name] = query_class
-
-    # Union of all Query classes
-    QueryUnion = Union[tuple(query_classes.values())]
-
-    return QueryUnion, query_classes
-
-
-
-# Example schema
-db_schema = {
-    "data": {"id": "int", "name": "str", "value": "str"},
-    "user": {"id": "int", "username": "str", "email": "str"}
-}
-
-QueryUnion, QueryClasses = create_table_queries(db_schema)
+    select_fields: Optional[List[str]] = Field(None, description="List of fields to select. Omit if no selection.")
 
 
 # Building sql from schema
-
 def buildWhereSQL(node: FilterNode) -> Tuple[str, Dict[str, Any]]:
     params: Dict[str, Any] = {}
 
@@ -223,15 +143,28 @@ def buildWhereSQL(node: FilterNode) -> Tuple[str, Dict[str, Any]]:
     sql = _build(node, [0])
     return sql, params
 
+def convert_named_params_for_asyncpg(sql: str, params: dict):
+    """Convert :name params to asyncpg's $1, $2... style"""
+    values = []
+    for i, (key, val) in enumerate(params.items(), start=1):
+        sql = sql.replace(f":{key}", f"${i}")
+        values.append(val)
+    return sql, values
+
 def buildSelectSQL(query: Query) -> str:
     limit = f" LIMIT {query.limit}" if query.limit is not None else ""
 
     if query.filter_tree is None:
         return f"SELECT * FROM {query.table_name}{limit}"
 
-    sql, params = buildWhereSQL(query.filter_tree)
+    sql, params = buildWhereSQL(query.filter_tree.model_dump())
 
-    if len(query.select_fields) > 0:
+    sql, params = convert_named_params_for_asyncpg(sql, params)
+
+    if query.select_fields is not None:
         return f"SELECT {', '.join(query.select_fields)} FROM {query.table_name} WHERE {sql}{limit}"
     
-    return f"SELECT * FROM {query.table_name} WHERE {sql}{limit}"
+    return [
+        f"SELECT * FROM {query.table_name} WHERE {sql}{limit}",
+        params
+    ]
