@@ -6,11 +6,11 @@ readme = "README.md"
 requires-python = ">=3.12, <3.13"
 dependencies = [
     "fastapi==0.116.1",
-    "mcp==1.8.0",
+    "mcp==1.12.4",
     "pandas==2.3.1",
     "pydantic==2.11.7",
     "asyncpg>=0.30.0",
     "pytest>=8.4.1",
     "python-dotenv>=1.1.1",
-    "fastmcp>=2.9.0",
+    "fastmcp>=2.11.3",
 ]
