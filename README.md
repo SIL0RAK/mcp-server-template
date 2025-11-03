@@ -10,8 +10,8 @@ A minimal template for running an **MCP (Model Context Protocol) server** with s
 * 🗄 **PostgreSQL database** integration
 * 🌐 **HTTP server** for MCP transport
 * 📦 **Containerization** with Docker & Docker Compose
+* 🗄 [**Migrations** for database schema management](./migrations/README.md)
 
----
 
 ## 🐳 Getting Started with Containers
 
@@ -28,7 +28,6 @@ docker run -p 8000:8000 mcp-server
 docker compose up
 ```
 
----
 
 ## ⚙️ Environment Variables
 
@@ -86,8 +85,6 @@ flowchart TD
 * **PostgreSQL Database** stores and retrieves persistent data.
 * Optional **API Token** can be used for secured communication.
 
-
----
 
 ## 🔄 Sequence Diagram (Request Flow)
 
