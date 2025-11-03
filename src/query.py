@@ -1,7 +1,5 @@
-from typing import List, Optional, Union, Dict, Any, Literal, Tuple, ForwardRef
-from typing_extensions import Annotated
-from pydantic import BaseModel, Field, RootModel, create_model
-from enum import Enum
+from typing import List, Optional, Union, Dict, Any, Literal, Tuple
+from pydantic import BaseModel, Field
 
 
 class RangeValue(BaseModel):
@@ -47,8 +45,11 @@ class Query(BaseModel):
     select_fields: Optional[List[str]] = Field(None, description="List of fields to select. Omit if no selection.")
 
 
-# Building sql from schema
 def buildWhereSQL(node: FilterNode) -> Tuple[str, Dict[str, Any]]:
+    """
+        Builds a SQL where clause from a boolean tree.
+    """
+
     params: Dict[str, Any] = {}
 
     def _leaf(n: Dict[str, Any], pnum: List[int]) -> str:
@@ -152,6 +153,10 @@ def convert_named_params_for_asyncpg(sql: str, params: dict):
     return sql, values
 
 def buildSelectSQL(query: Query) -> str:
+    """
+        Builds SQL from defined schema.
+        Using custom implementation to allow custom logic insertions and exclusions of certain selectors.
+    """
     limit = f" LIMIT {query.limit}" if query.limit is not None else ""
 
     if query.filter_tree is None:

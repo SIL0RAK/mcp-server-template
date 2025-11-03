@@ -8,6 +8,9 @@ API_TOKEN = os.getenv(
 )
 
 class BearerAuthMiddleware(Middleware):
+    """
+        Checks if authorization header is present and matches API_TOKEN
+    """
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         if API_TOKEN is None:
             return await call_next(context)

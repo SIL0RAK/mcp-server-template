@@ -1,6 +1,6 @@
-# Example schema to let llm know what tables are available
 from pydantic import BaseModel, Field
 
+# Example schema to let llm know what tables are available
 
 class DataTableFields(BaseModel):
     id: str = Field(None, alias="id", description="index of table")
