@@ -46,6 +46,7 @@ The server is configured using environment variables.
 * Local: `http://localhost:8000`
 * Remote: `http://<your-server-domain>`
 
+
 ### Authentication
 
 If `API_TOKEN` is set, include it in your request headers:
@@ -61,14 +62,17 @@ Content-Type: application/json
 Accept: application/json, text/event-stream
 ```
 
----
+## Prompt examples
+
+1. `get me record from table data where id is 3`
+2. `get me all records from table data`
+3. `get me all records from table data where name is "John Doe"`
 
 ## 📡 Transport Support
 
 * ✅ Currently supports: **`streamable-http`**
 * 🚧 Can be extended to support other MCP transports
 
----
 
 ## 🖼 Architecture Diagram
 
