@@ -1,8 +1,7 @@
 # MCP Server Template
 
-A minimal template for running an **MCP (Model Context Protocol) server** with support for authentication, PostgreSQL integration, and containerization.
+A minimal template for running an **MCP (Model Context Protocol) server** with support for authentication, PostgreSQL integration, and containerization. Built using **FastMCP**.
 
----
 
 ## 🚀 Features
 
@@ -104,3 +103,8 @@ sequenceDiagram
         Server-->>Client: Response (JSON / Event Stream)
     end
 ```
+
+## Related documents
+
+* [FastMCP](https://gofastmcp.com/)
+* [MCP Protocol](https://modelcontextprotocol.io/docs/getting-started/intro)
