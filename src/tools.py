@@ -5,10 +5,11 @@ from db import get_db
 
 def register_tools(mcp):
     """
-        Define a function that takes mcp and registers tools
+        Define a function that takes mcp and registers tools by using FastMCP decorator
     """
 
 
+    # Using FastMCP decorator to register tools
     @mcp.tool(
         name="get_data_value",
         description="Returns value from table data where id matches provided value"
