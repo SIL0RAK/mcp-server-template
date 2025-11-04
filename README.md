@@ -14,18 +14,33 @@ A minimal template for running an **MCP (Model Context Protocol) server** with s
 
 ## 🐳 Getting Started with Containers
 
-### Option 1: Run server only
+### Option 1: Run server + database (recommended for testing)
+
+```bash
+docker compose up
+```
+
+> **Note**: You will need to set environment variables in your system
+
+
+### Option 2: Run server only
 
 ```bash
 docker build -t mcp-server .
 docker run -p 8000:8000 mcp-server
 ```
 
-### Option 2: Run server + database (recommended for testing)
+> **Note**: You will need to set environment variables in .env file.
 
-```bash
-docker compose up
-```
+## 🔨 Local Development
+
+Running project locally will require python 3.11 or higher.
+
+`uv sync` -Install packages. Read more about it [here](https://docs.astral.sh/uv/).
+
+`cd src` - move to project root
+
+`python -m server` - run server (don't forget to set `.env` file)
 
 
 ## ⚙️ Environment Variables
@@ -62,7 +77,7 @@ Content-Type: application/json
 Accept: application/json, text/event-stream
 ```
 
-## Prompt examples
+## 📐 Prompt examples
 
 1. `get me record from table data where id is 3`
 2. `get me all records from table data`
@@ -112,3 +127,4 @@ sequenceDiagram
 
 * [FastMCP](https://gofastmcp.com/)
 * [MCP Protocol](https://modelcontextprotocol.io/docs/getting-started/intro)
+* [UV package manager](https://docs.astral.sh/uv/)
