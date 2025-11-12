@@ -1,0 +1,12 @@
+NOTICE
+=======
+
+YourProjectName
+Copyright (c) 2025 Karolis Krusinskas
+
+This project includes software developed by third parties:
+
+  • FastMCP (https://github.com/jlowin/fastmcp)  
+    Copyright © 2024-2025 Jeremiah Lowin  
+    Licensed under the Apache License, Version 2.0  
+    [You may obtain a copy of the License at: https://www.apache.org/licenses/LICENSE-2.0]
