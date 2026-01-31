@@ -1,35 +1,57 @@
-from typing import List, Optional, Union, Dict, Any, Literal, Tuple
+from typing import List, Optional, TypedDict, Union, Dict, Any, Literal, Tuple, get_args
 from pydantic import BaseModel, Field
-
+from config import SelectFieldsLiteral
+from llm import Embeddings
 
 class RangeValue(BaseModel):
-    from_: Optional[str] = Field(None, alias="from", description="Start of range (YYYY-MM-DD)")
-    to: Optional[str] = Field(None, description="End of range (YYYY-MM-DD)")
+    min: Optional[float] = Field(None, description="Minimum value (inclusive)")
+    max: Optional[float] = Field(None, description="Maximum value (inclusive)")
 
+class SemanticValue(BaseModel):
+    query: str = Field(..., description="The natural language string to search for semantically. Try to match structure of field to get best semantic results. It should always be in EN language")
+    threshold: Optional[float] = Field(0.7, description="Distance threshold.")
 
-class BetweenValue(BaseModel):
-    from_: str = Field(..., alias="from", description="Start date (YYYY-MM-DD)")
-    to: str = Field(..., description="End date (YYYY-MM-DD)")
-
-
-class LeafCondition(BaseModel):
+class NumericCondition(BaseModel):
     field: str
-    # custom operators can be injected
-    op: Literal[
-        "eq", "neq", "contains", "starts_with", "ends_with", "ilike",
-        "in", "not_in", "is_null", "is_not_null",
-        "gt", "gte", "lt", "lte",
-        "range", "between", "not_between", "semantic"
-    ]
-    value: Union[
-        str,
-        int,
-        List[Union[str, int]],
-        RangeValue,
-        BetweenValue,
-        "LeafCondition",
-    ]
+    op: Literal["eq", "neq", "gt", "gte", "lt", "lte"]
+    value: Union[int, float] = Field(..., description="Numeric value for comparison")
 
+class StringCondition(BaseModel):
+    field: str
+    op: Literal["starts_with", "ends_with", "contains"]
+    value: str = Field(..., description="String pattern to match")
+
+class ListCondition(BaseModel):
+    field: str
+    op: Literal["contains_all", "contains_any"] 
+    value: List[Union[str, int]] = Field(..., description="List of values to match against an array column")
+
+class RangeCondition(BaseModel):
+    field: str
+    op: Literal["between", "not_between"]
+    value: RangeValue
+
+class SemanticCondition(BaseModel):
+    field: str = Field(
+        ..., 
+        description="The database column name to perform a semantic search on."
+    )
+    op: Literal["semantic"]
+    value: SemanticValue
+
+class NullCondition(BaseModel):
+    field: str
+    op: Literal["is_null", "is_not_null"]
+    value: Optional[None] = Field(None, description="No value needed for null checks")
+
+LeafCondition = Union[
+    NumericCondition,
+    StringCondition,
+    ListCondition,
+    RangeCondition,
+    SemanticCondition,
+    NullCondition
+]
 
 class BooleanNode(BaseModel):
     op: Literal["and", "or", "not"]
@@ -40,12 +62,13 @@ FilterNode = Union[LeafCondition, BooleanNode]
 
 class Query(BaseModel):
     filter_tree: Optional[FilterNode] = Field(None, description="Nested boolean tree with leaf conditions.")
-    table_name: str = Field(..., description="Name of database table")
-    limit: Optional[int] = Field(None, description="Max rows to return. Omit if no limit.")
+    limit: Optional[int] = Field(10, description="Max rows to return. Omit if no limit.")
     select_fields: Optional[List[str]] = Field(None, description="List of fields to select. Omit if no selection.")
+    offset: Optional[int] = Field(0, description="Offset for pagination.")
+    table_name: str
 
 
-def buildWhereSQL(node: FilterNode) -> Tuple[str, Dict[str, Any]]:
+def buildWhereSQL(node: FilterNode, embeddings: Embeddings) -> Tuple[str, Dict[str, Any]]:
     """
         Builds a SQL where clause from a boolean tree.
     """
@@ -61,11 +84,8 @@ def buildWhereSQL(node: FilterNode) -> Tuple[str, Dict[str, Any]]:
             k = f"p{pnum[0]}"; pnum[0] += 1
             params[k] = val_any
             return f":{k}"
-        
-        def _escape_like(s: str) -> str:
-           p = s.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
-           return f"{_p(p)} ESCAPE '\\\\'"
-
+    
+    
         # Comparisons
         if op == "eq":        return f"{col} = {_p(val)}"
         if op == "neq":       return f"{col} <> {_p(val)}"
@@ -74,22 +94,32 @@ def buildWhereSQL(node: FilterNode) -> Tuple[str, Dict[str, Any]]:
         if op == "lt":        return f"{col} < {_p(val)}"
         if op == "lte":       return f"{col} <= {_p(val)}"
 
-        # Text matching
-        if op == "contains":
-            pattern = _escape_like(f"%{val}%")
-            return f"{col} ILIKE {pattern}"
+        # semantic
+        if op == "semantic":
+            vector_val = embeddings.embed(val["query"])
+            threshold_val = val["threshold"]
+            p_vector = _p(f"""[{", ".join(map(str, vector_val))}]""")
+            p_threshold = _p(threshold_val)
+            return f"{col} <=> {p_vector} <= {p_threshold}"
+        
+        # List matching
+        if op == "contains_any":
+            return f"{col} && {_p(val)}"
+        if op == "contains_all":
+            return f"{col} @> {_p(val)}"
+        
 
-        if op == "starts_with":
-            pattern = _escape_like(f"{val}%")
-            return f"{col} ILIKE {pattern}"
+        if op in ["ilike", "contains", "starts_with", "ends_with"]:
+            escaped_input = str(val).replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+                  # 2. Add the wildcards AFTER escaping
+            if op == "contains": 
+                final_val = f"%{escaped_input}%"
+            elif op == "starts_with": 
+                final_val = f"{escaped_input}%"
+            elif op == "ends_with": 
+                final_val = f"%{escaped_input}"
 
-        if op == "ends_with":
-            pattern = _escape_like(f"%{val}")
-            return f"{col} ILIKE {pattern}"
-
-        if op == "ilike":
-            pattern = _escape_like(val if isinstance(val, str) else str(val))
-            return f"{col} ILIKE {pattern}"
+            return f"{col} ILIKE {_p(final_val)} ESCAPE '\\'"
 
         # IN / NOT IN
         if op in {"in", "not_in"}:
@@ -144,6 +174,7 @@ def buildWhereSQL(node: FilterNode) -> Tuple[str, Dict[str, Any]]:
     sql = _build(node, [0])
     return sql, params
 
+
 def convert_named_params_for_asyncpg(sql: str, params: dict):
     """Convert :name params to asyncpg's $1, $2... style"""
     values = []
@@ -152,30 +183,79 @@ def convert_named_params_for_asyncpg(sql: str, params: dict):
         values.append(val)
     return sql, values
 
-def buildSelectSQL(query: Query) -> str:
-    """
-        Builds SQL from defined schema.
-        Using custom implementation to allow custom logic insertions and exclusions of certain selectors.
-    """
-    limit = f" LIMIT {query.limit}" if query.limit is not None else ""
+class QueryPayload(TypedDict):
+    sql: str
+    params: List[Any]
 
-    if query.filter_tree is None:
-        return [
-            f"SELECT * FROM {query.table_name}{limit}",
-            []
-        ]
+class SQLResponse(TypedDict):
+    data: QueryPayload
+    count: QueryPayload
 
-    sql, params = buildWhereSQL(query.filter_tree.model_dump())
-
-    sql, params = convert_named_params_for_asyncpg(sql, params)
-
-    if query.select_fields is not None:
-        return [
-            f"SELECT {', '.join(query.select_fields)} FROM {query.table_name} WHERE {sql}{limit}",
-            params
-        ]
+def buildSelectSQL(query: Query, embeddings: Embeddings) -> SQLResponse:
+    limit_str = f" LIMIT {query.limit}" if query.limit is not None else ""
+    offset_str = f" OFFSET {query.offset}" if query.offset is not None else ""
     
-    return [
-        f"SELECT * FROM {query.table_name} WHERE {sql}{limit}",
-        params
-    ]
+    if query.filter_tree is None:
+        where_clause = ""
+        params = []
+    else:
+        where_clause, params = buildWhereSQL(query.filter_tree.model_dump(), embeddings)
+        where_clause, params = convert_named_params_for_asyncpg(where_clause, params)
+        where_clause = f" WHERE {where_clause}"
+
+    fields_tuple = get_args(SelectFieldsLiteral)
+    fields_string = ", ".join(fields_tuple)
+
+    select_cols = ", ".join(query.select_fields) if query.select_fields else fields_string
+    data_sql = f"SELECT {select_cols} FROM {query.table_name}{where_clause}{limit_str}{offset_str}"
+    count_sql = f"SELECT COUNT(*) as total FROM {query.table_name}{where_clause}"
+
+    return {
+        "data": {"sql": data_sql, "params": params},
+        "count": {"sql": count_sql, "params": params}
+    }
+
+
+def generate_schema_description(table_model: type[BaseModel]) -> str:
+    """Generates a human-readable (LLM-readable) schema for the tool description."""
+    lines = ["Available Table Fields:"]
+    for name, field in table_model.model_fields.items():     
+        f_type = str(field.annotation).replace("typing.", "")
+        desc = field.description or "No description provided."
+        lines.append(f"- **{name}** ({f_type}): {desc}")
+    
+    return "\n".join(lines)
+
+def shape_response(
+    data: List[Dict[str, Any]],
+    indicator_field: str,
+    indicator_namespace: str
+) -> str:
+    """
+    Converts a list of dictionaries into a readable Markdown format.
+    """
+    if not data:
+        return "No records found."
+
+    formatted_blocks = []
+    
+    for record in data:
+        # Get the value for the header, default to 'Record' if field missing
+        header_value = record.get(indicator_field, "Record")
+        
+        # Build the lines for this specific record
+        lines = [f"### {indicator_namespace} {header_value}"]
+        
+        for key, value in record.items():
+            if key == indicator_field:
+                continue
+
+            if value is None:
+                continue
+            
+            lines.append(f"{key}: {value}")
+        
+        formatted_blocks.append("\n".join(lines))
+
+    return "\n\n".join(formatted_blocks)
+    

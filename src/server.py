@@ -18,16 +18,16 @@ mcp = FastMCP(
     name="Remote data source connection", 
     middleware=[BearerAuthMiddleware()],
     instructions="This server provides connection to remote datasets",
+    stateless_http=True
 )
 
 register_tools(mcp)
-
 
 if __name__ == "__main__":
     asyncio.run(run_migrations())
     mcp.run(
         transport="streamable-http",
-        host="0.0.0.0",
-        port=8000,
+        host="localhost",
+        port=8001,
         path="/"
     )
