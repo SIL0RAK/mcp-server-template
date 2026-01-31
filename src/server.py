@@ -27,7 +27,7 @@ if __name__ == "__main__":
     asyncio.run(run_migrations())
     mcp.run(
         transport="streamable-http",
-        host="localhost",
-        port=8001,
+        host="0.0.0.0",
+        port=8000,
         path="/"
     )
