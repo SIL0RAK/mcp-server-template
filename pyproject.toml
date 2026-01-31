@@ -13,4 +13,5 @@ dependencies = [
     "pytest>=8.4.1",
     "python-dotenv>=1.1.1",
     "fastmcp>=2.11.3",
+    "langchain-openai>=1.1.7",
 ]
