@@ -1,6 +1,6 @@
 from typing import List, Optional, TypedDict, Union, Dict, Any, Literal, Tuple, get_args
 from pydantic import BaseModel, Field
-from config import SelectFieldsLiteral
+from config import NumberFieldsLiteral, SelectFieldsLiteral
 from llm import Embeddings
 
 class RangeValue(BaseModel):
@@ -12,7 +12,7 @@ class SemanticValue(BaseModel):
     threshold: Optional[float] = Field(0.7, description="Distance threshold.")
 
 class NumericCondition(BaseModel):
-    field: str
+    field: NumberFieldsLiteral
     op: Literal["eq", "neq", "gt", "gte", "lt", "lte"]
     value: Union[int, float] = Field(..., description="Numeric value for comparison")
 

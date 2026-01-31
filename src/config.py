@@ -43,6 +43,21 @@ SelectFieldsLiteral = Literal[
     "usage"
 ]
 
+DistinctFieldsLiteral = Literal[
+    "practices_involved_1", 
+    "practices_involved_2", 
+    "practices_involved_3",
+    "project_status",
+    "year_of_reference",
+    "project_method",
+    "industry",
+    "usage"
+]
+
+NumberFieldsLiteral = Literal[
+    "volume_keuro"
+]
+
 class ProjectTable(BaseModel):
     id: int = Field(..., description="Unique identifier (int8)")
 

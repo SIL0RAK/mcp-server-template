@@ -2,7 +2,7 @@ import functools
 import json
 from typing import List, Optional, Sequence
 from query import FilterNode, Query, buildSelectSQL, generate_schema_description, shape_response
-from config import table_name, ProjectTableWithEmbeddings, SelectFieldsLiteral
+from config import DistinctFieldsLiteral, table_name, ProjectTableWithEmbeddings, SelectFieldsLiteral
 from db import get_db
 from pydantic import ValidationError
 from llm import Embeddings
@@ -23,6 +23,22 @@ def safe_tool(func):
 
 def register_tools(mcp):
     embeddings = Embeddings()
+
+    @mcp.tool(
+        name="get_distinct_values_for_field",
+        description="To build best queries you can check what values are available for each field."
+    )
+    @safe_tool
+    async def get_distinct_values_for_field(field: DistinctFieldsLiteral) -> str:
+        try:
+            pool = await get_db()
+            async with pool.acquire() as conn:
+                result = await conn.fetch(f"SELECT DISTINCT {field} FROM {table_name}")
+                return json.dumps([r[field] for r in result])
+        except Exception as e:
+            print("Error:", e)
+            return json.dumps({"error": str(e)})
+
 
     @mcp.tool(
         name="search_project_references",
