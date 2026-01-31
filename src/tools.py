@@ -23,29 +23,21 @@ def register_tools(mcp):
     embeddings = Embeddings()
 
     @mcp.tool(
-        name="get_data_by_query",
+        name="search_project_references",
         description=f"""
-Generic tool to extract data from the database using structured filters and semantic search.
+This tool combines structured SQL-style filtering with vector-based semantic search.
 
-Using this tool user should be able to answer questions like:
+Capabilities:
+Structured Filtering: Use the 'filters' object for exact or partial matches on metadata fields (Project Name, Client, Industry, Location, Start Date).
 
-* List all projects with a specific name
-* List all projects with a specific name and a specific description
-* List all projects with a specific name and a specific description and a specific industry
-* List all projects with a specific name and a specific description and a specific industry and a specific location
-* List all projects with a specific name and a specific description and a specific industry and a specific location and a specific start date
-* Get detail description of certain project reference
+Semantic Search: Use the 'semantic_query' parameter to search for meaning, concepts, or intent within the project's Description, Impact, and Solution fields.
 
+Constraints:
+Semantic Search Limitation: Semantic/vector search is ONLY performed on embedded text fields (Description, Impact, Solutions). It cannot be used for dates or numeric values.
 
-Sample cases:
+Client Search: When searching for a specific client (e.g., 'BMW'), always use the 'client_name' filter first.
 
-* Provide solutions that have association with artificial intelligence - 
-it should use semantic search to look for similar solution names, description and impact embedded fields.
-
-* Search for projects for client BMW - 
-it should search for client names that include BMW, and then use semantic search to look for similar project names, description and impact embedded fields. 
-
-! Important semantic search can only be performed on embedded fields
+Combined Queries: If a user asks for "AI solutions for BMW," populate 'client_name' with "BMW" and 'semantic_query' with "artificial intelligence."
 
 ### Table Schema:
 
