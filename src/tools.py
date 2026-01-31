@@ -7,6 +7,8 @@ from db import get_db
 from pydantic import ValidationError
 from llm import Embeddings
 
+
+
 def safe_tool(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
